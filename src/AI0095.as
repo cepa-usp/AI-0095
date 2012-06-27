@@ -1,6 +1,8 @@
 package  
 {
+	import cepa.utils.ToolTip;
 	import Box2DAS.Common.V2;
+	import fl.events.SliderEvent;
 	import flash.display.MovieClip;
 	import flash.display.Stage;
 	import flash.events.Event;
@@ -20,6 +22,8 @@ package
 		private var projetil:Projetil;
 		private var projeteisEstaticos:Array = new Array();
 		private var timer:Timer;
+		private var zoomInCount:int = 0;
+		private var zoomOutCount:int = 0;
 		
 		public function AI0095() 
 		{
@@ -30,24 +34,23 @@ package
 		private function init(e:Event):void 
 		{
 			removeEventListener(Event.ADDED_TO_STAGE, init);
-			
-			//timer = new Timer(10);
-			
-			//World(world).gravityY = 10;
-			
 			telaInfo.visible = false;
 			
 			botaoPlay.addEventListener(MouseEvent.CLICK, lanca);
 			menu.botaoReset.addEventListener(MouseEvent.CLICK, reset);
+			botaoStop.addEventListener(MouseEvent.CLICK, reset);
 			menu.botaoInfo.addEventListener(MouseEvent.CLICK, info);
 			telaInfo.addEventListener(MouseEvent.CLICK, info);
 			stage.addEventListener(MouseEvent.MOUSE_DOWN, drag);
 			stage.addEventListener(MouseEvent.MOUSE_UP, drop);
 			stage.addEventListener(MouseEvent.MOUSE_WHEEL, wheel);
+			zoomIn.addEventListener(MouseEvent.MOUSE_DOWN, zoom);
+			zoomOut.addEventListener(MouseEvent.MOUSE_DOWN, zoom);
+			stage.addEventListener(MouseEvent.MOUSE_UP, function () {if (timer != null) timer.stop()});
 			//slider.addEventListener(MouseEvent.MOUSE_DOWN, removeStageEvent);
 			//slider.addEventListener(MouseEvent.MOUSE_UP, addStageEvent);
+			slider.addEventListener(SliderEvent.CHANGE, changeSlider);
 			stage.addEventListener(KeyboardEvent.KEY_DOWN, function (e:KeyboardEvent) { if (KeyboardEvent(e).keyCode == Keyboard.ESCAPE) telaInfo.visible = false; aboutScreen.visible = false;} );			
-			trace("-");
 			menu.botaoCreditos.addEventListener(MouseEvent.CLICK, function () { aboutScreen.visible = true; setChildIndex(aboutScreen, numChildren - 1); } );
 			aboutScreen.addEventListener(MouseEvent.CLICK, function () { aboutScreen.visible = false; } );
 			makeoverOut(menu.botaoReset);
@@ -68,6 +71,9 @@ package
 			slider.value = 5;
 			
 			criaProjetil();
+			createToolTips();
+			
+			world.paused = true;
 		}
 		
 		private function info(e:MouseEvent):void 
@@ -87,8 +93,53 @@ package
 		
 		private function wheel(e:MouseEvent):void 
 		{
-			if (e.delta < 0) if (world.scaleX - 0.05 > 0) world.scaleX = world.scaleY = world.scaleX - 0.05;
-			if (e.delta > 0) world.scaleX = world.scaleY = world.scaleX + 0.05;
+			if (e.delta < 0) {
+				if (zoomOutCount < 16) {
+					world.scaleX = world.scaleY = world.scaleX - 0.05;
+					zoomOutCount++;
+					zoomInCount--;
+				}
+			}
+			
+			if (e.delta > 0) {
+				if (zoomInCount < 10) {
+					world.scaleX = world.scaleY = world.scaleX + 0.05;
+					zoomInCount++;
+					zoomOutCount--;
+				}
+			}
+		}
+		
+		private function zoom(e:MouseEvent):void 
+		{
+			timer = new Timer(100);
+			
+			if (e.target is ZoomMenos) {
+				zoomMenos(null);
+				timer.addEventListener(TimerEvent.TIMER, zoomMenos);
+			}
+			if (e.target is ZoomMais) {
+				zoomMais(null);
+				timer.addEventListener(TimerEvent.TIMER, zoomMais);
+			}
+			
+			timer.start();
+		}
+		
+		private function zoomMenos(e:TimerEvent):void {
+			if (zoomOutCount < 16) {
+				world.scaleX = world.scaleY = world.scaleX - 0.05;
+				zoomOutCount++;
+				zoomInCount--;
+			}
+		}
+		
+		private function zoomMais(e:TimerEvent):void {
+			if (zoomInCount < 10) {
+				world.scaleX = world.scaleY = world.scaleX + 0.05;
+				zoomInCount++;
+				zoomOutCount--;
+			}
 		}
 		
 		private function drop(e:MouseEvent):void 
@@ -118,6 +169,10 @@ package
 			
 			if (distancia() <= 137) {
 				stage.removeEventListener(Event.ENTER_FRAME, onTimer);
+				botaoPlay.removeEventListener(MouseEvent.CLICK, continua);
+				botaoPlay.addEventListener(MouseEvent.CLICK, lanca);
+				botaoPlay.visible = true;
+				botaoPause.visible = false;
 				world.paused = true;
 			}
 		}
@@ -142,8 +197,6 @@ package
 		
 		private function reset(e:MouseEvent):void 
 		{
-			//timer.stop();
-			//timer.reset();
 			stage.removeEventListener(Event.ENTER_FRAME, onTimer);
 			
 			world.scaleX = world.scaleY = 1;
@@ -159,7 +212,24 @@ package
 			criaProjetil();
 			
 			slider.value = 5;
+			zoomInCount = 0;
+			zoomOutCount = 0;
 			
+			botaoPlay.visible = true;
+			botaoPause.visible = false;
+			
+			botaoPlay.removeEventListener(MouseEvent.CLICK, continua);
+			botaoPlay.addEventListener(MouseEvent.CLICK, lanca);
+		}
+		
+		private function changeSlider(e:SliderEvent):void 
+		{
+			if (world.paused) return;
+			
+			botaoPlay.visible = true;
+			botaoPause.visible = false;
+			
+			botaoPlay.removeEventListener(MouseEvent.CLICK, continua);
 			botaoPlay.addEventListener(MouseEvent.CLICK, lanca);
 		}
 		
@@ -169,10 +239,23 @@ package
 			botaoPlay.addEventListener(MouseEvent.CLICK, continua);
 			botaoPause.addEventListener(MouseEvent.CLICK, pausa);
 			
-			world.canhao.play();
+			if (!world.paused || distancia() <= 137) {
+				stage.removeEventListener(Event.ENTER_FRAME, onTimer);
+				
+				for (var i:int = 1; i <= projeteisEstaticos.length; i++ ) world.removeChild(projeteisEstaticos[projeteisEstaticos.length - i]);
+				projeteisEstaticos = new Array();
+				
+				world.removeChild(projetil);
+				projetil = null;
+				
+				criaProjetil();
+			}
 			
-			//timer.start();
-			//timer.addEventListener(TimerEvent.TIMER, onTimer);
+			botaoPlay.visible = false;
+			botaoPause.visible = true;
+			
+			world.canhao.play();
+			world.paused = false;
 			
 			projetil.applyGravity = true;
 			projetil.linearVelocityX = slider.value;
@@ -183,16 +266,20 @@ package
 		
 		private function continua(e:MouseEvent):void 
 		{
-			//timer.start();
 			stage.addEventListener(Event.ENTER_FRAME, onTimer);
 			world.paused = false;
+			
+			botaoPlay.visible = false;
+			botaoPause.visible = true;
 		}
 		
 		private function pausa(e:MouseEvent):void 
 		{
-			//timer.stop();
 			stage.removeEventListener(Event.ENTER_FRAME, onTimer);
 			world.paused = true;
+			
+			botaoPlay.visible = true;
+			botaoPause.visible = false;
 		}
 		
 		private function makeoverOut(btn:MovieClip):void
@@ -212,6 +299,20 @@ package
 		{
 			var btn:MovieClip = MovieClip(e.target);
 			btn.gotoAndStop(1);
+		}
+		
+		/**
+		 * Cria os tooltips nos botões
+		 */
+		private function createToolTips():void 
+		{
+			var instTT:ToolTip = new ToolTip(menu.botaoInfo, "Informações", 12, 0.8, 100, 0.6, 0.1);
+			var resetTT:ToolTip = new ToolTip(menu.botaoReset, "Reiniciar", 12, 0.8, 100, 0.6, 0.1);
+			var infoTT:ToolTip = new ToolTip(menu.botaoCreditos, "Créditos", 12, 0.8, 100, 0.6, 0.1);
+			
+			addChild(instTT);
+			addChild(resetTT);
+			addChild(infoTT);
 		}
 	}
 
