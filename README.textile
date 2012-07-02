@@ -1,3 +1,5 @@
-h1. Título
+h1. Canhão de Newton
 
-Descrição
+Durante seus estudos sobre a gravidade, Newton percebeu que, como qualquer objeto do nosso dia-a-dia, a Lua também cai em direção à Terra. No entanto, a diferença é óbvia: a Lua não atinge o chão! Para explicar isso, Newton imaginou um canhão muito poderoso, capaz de atirar uma bala com tamanha velocidade que ela nunca atingiria o chão, ainda que estivesse sempre caindo em direção à Terra.
+
+Esta atividade interativa expõe este conceito: nela você pode controlar a velocidade de lançamento da bala do canhão (use o botão deslizante). Se a velocidade for pequena, a bala atingirá o chão e parará, como estamos acostumados a ver. Entretanto, se a velocidade for suficientemente alta, a bala entrará em órbita, como a Lua.
